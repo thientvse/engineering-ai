@@ -1,0 +1,21 @@
+review:
+  output_language: vi
+  include_positive_observations: true
+  include_test_gaps: true
+  include_impact_analysis: true
+
+severity:
+  levels:
+    - CRITICAL
+    - MAJOR
+    - MINOR
+    - SUGGESTION
+
+behavior:
+  modify_source_code: false
+  create_commit: false
+  push_changes: false
+  approve_pull_request: false
+
+stacks:
+  auto_detect: true
