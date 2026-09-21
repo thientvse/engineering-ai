@@ -1,88 +1,90 @@
+*[Tiếng Việt](README.vi.md)*
+
 # Engineering AI — Shared Code Review Framework
 
-Bộ config/prompt/rule dùng chung để chạy **AI code review** (read-only, advisory) cho các repo khác. Repo này **không chứa code để review** — nó là framework được các repo khác trỏ tới khi chạy review.
+Shared config/prompts/rules for running **read-only, advisory AI code review** against other repositories. This repository holds no code to review itself — it's the framework other repos point to when running a review.
 
-## 1. Yêu cầu trước khi dùng
+## 1. Prerequisites
 
 - Windows + PowerShell.
-- [Kiro CLI](https://kiro.dev) đã cài và đăng nhập (`kiro-cli`), vì script hiện chạy review qua agent `code-reviewer` của Kiro.
-- Repo muốn review phải là **Git repo có remote `origin`** (script fetch và diff trên `origin/<branch>`, không dùng branch local).
-- Đã push cả 2 branch (branch cần review và branch base) lên remote.
+- [Kiro CLI](https://kiro.dev) installed and logged in (`kiro-cli`), since the script currently runs the review through Kiro's `code-reviewer` agent.
+- The repository being reviewed must be a **Git repo with an `origin` remote** (the script fetches and diffs on `origin/<branch>`, not local branches).
+- Both branches (the one under review and the base branch) must already be pushed to the remote.
 
-## 2. Cài đặt
+## 2. Setup
 
-1. Clone repo này về máy, ví dụ `D:\skill\engineering-ai`.
-2. Set biến môi trường `ENGINEERING_AI_HOME` trỏ tới đường dẫn đó.
+1. Clone this repository, e.g. to `D:\skill\engineering-ai`.
+2. Point the `ENGINEERING_AI_HOME` environment variable at that path.
 
-   Tạm thời cho session hiện tại:
+   For the current session only:
    ```powershell
    $env:ENGINEERING_AI_HOME = "D:\skill\engineering-ai"
    ```
 
-   Set cố định (khuyến nghị, để không phải set lại mỗi lần mở terminal mới):
+   Persisted (recommended, so you don't have to set it every new terminal):
    ```powershell
    [System.Environment]::SetEnvironmentVariable("ENGINEERING_AI_HOME", "D:\skill\engineering-ai", "User")
    ```
-   Sau đó mở terminal mới để biến có hiệu lực.
+   Open a new terminal afterward for it to take effect.
 
-## 3. Cách chạy review cho 1 repo bất kỳ
+## 3. Running a review against any repo
 
 ```powershell
-cd <đường-dẫn-tới-repo-cần-review>
+cd <path-to-the-repo-being-reviewed>
 D:\skill\engineering-ai\scripts\review.ps1 <review-branch> <base-branch>
 ```
 
-Ví dụ:
+Example:
 ```powershell
 cd C:\projects\my-service
 D:\skill\engineering-ai\scripts\review.ps1 feature/add-payment develop
 ```
 
-- `review-branch`: nhánh chứa thay đổi cần review (thường là branch của PR).
-- `base-branch`: nhánh nền để so sánh diff. Chỉ chấp nhận `develop`, `master`, hoặc `main`.
+- `review-branch`: the branch containing the changes to review (typically a PR branch).
+- `base-branch`: the branch to diff against. Only `develop`, `master`, or `main` are accepted.
 
-Script sẽ:
-1. Kiểm tra `ENGINEERING_AI_HOME` hợp lệ và đủ file cần thiết.
-2. Kiểm tra thư mục hiện tại là Git repo có remote `origin`.
-3. `git fetch origin --prune`, kiểm tra 2 branch tồn tại trên remote.
-4. In ra danh sách file thay đổi (`git diff --stat origin/<base>...origin/<review>`).
-5. Dựng prompt review, gọi `kiro-cli` (agent `code-reviewer`, chế độ read-only — **không sửa/commit/push/merge/approve**).
-6. Ghi kết quả ra file `review-report.md` ở gốc repo đang review, đồng thời in ra terminal.
+The script will:
+1. Validate `ENGINEERING_AI_HOME` and that all required framework files exist.
+2. Verify the current directory is a Git repo with an `origin` remote.
+3. Run `git fetch origin --prune` and confirm both branches exist on the remote.
+4. Print the changed-files summary (`git diff --stat origin/<base>...origin/<review>`).
+5. Build the review prompt and invoke `kiro-cli` (agent `code-reviewer`, read-only mode — **no edits, commits, pushes, merges, or approvals**).
+6. Write the result to `review-report.md` at the root of the reviewed repo, and print it to the terminal.
 
-## 4. Review dựa trên gì
+## 4. What the review is based on
 
-Khi chạy, AI sẽ đọc theo thứ tự:
+When run, the AI reads, in order:
 
-1. [config/defaults.yml](config/defaults.yml) — ngôn ngữ output (mặc định `vi`), severity levels, hành vi read-only.
-2. [prompts/code-review.md](prompts/code-review.md) — quy trình review chuẩn: xác định scope, detect stack, evidence requirement, false-positive control, severity, test gaps, impact analysis, format output.
-3. [rules/common-review.md](rules/common-review.md) — rule chung, áp dụng mọi stack.
-4. Rule riêng theo stack detect được từ file thay đổi:
-   - [rules/java-spring-review.md](rules/java-spring-review.md) — nếu có `pom.xml`, `build.gradle`, `src/main/java`, dependency Spring Boot...
-   - [rules/nextjs-react-review.md](rules/nextjs-react-review.md) — nếu có `next.config.*`, `app/`, `pages/`, dependency Next.js/React...
-   - Repo full-stack (cả backend lẫn frontend thay đổi) sẽ load cả hai.
+1. [config/defaults.yml](config/defaults.yml) — output language (defaults to `vi`), severity levels, read-only behavior.
+2. [prompts/code-review.md](prompts/code-review.md) — the standard review process: scope determination, stack detection, evidence requirements, false-positive control, severity, test gaps, impact analysis, output format.
+3. [rules/common-review.md](rules/common-review.md) — general rules applied to every stack.
+4. Stack-specific rules, detected from the changed files:
+   - [rules/java-spring-review.md](rules/java-spring-review.md) — if `pom.xml`, `build.gradle`, `src/main/java`, Spring Boot dependencies, etc. are present.
+   - [rules/nextjs-react-review.md](rules/nextjs-react-review.md) — if `next.config.*`, `app/`, `pages/`, Next.js/React dependencies, etc. are present.
+   - Full-stack repos (both backend and frontend changed) load both rule sets.
 
-Kết quả trả về theo format cố định: Summary → Risk Level → Findings (CRITICAL/MAJOR/MINOR/SUGGESTION, kèm evidence + confidence) → Test Gaps → Impact Analysis → Positive Observations → Final Review Result (`READY FOR HUMAN REVIEW` / `CHANGES RECOMMENDED` / `CHANGES REQUIRED`).
+The result follows a fixed structure: Summary → Risk Level → Findings (CRITICAL/MAJOR/MINOR/SUGGESTION, with evidence + confidence) → Test Gaps → Impact Analysis → Positive Observations → Final Review Result (`READY FOR HUMAN REVIEW` / `CHANGES RECOMMENDED` / `CHANGES REQUIRED`).
 
-**Lưu ý:** kết quả chỉ mang tính tham khảo (advisory). Người review vẫn là người quyết định merge cuối cùng.
+**Note:** the result is advisory only. The human reviewer still makes the final merge decision.
 
-## 5. Tuỳ chỉnh riêng cho từng repo (tuỳ chọn)
+## 5. Per-repo overrides (optional)
 
-Nếu repo cần review có yêu cầu riêng (ví dụ đổi ngôn ngữ output, bật/tắt mục nào đó), tạo file `.engineering-ai.yml` ở root repo đó — cấu hình trong file này sẽ override `config/defaults.yml`.
+If a reviewed repo needs different settings (e.g. a different output language, enabling/disabling a section), add a `.engineering-ai.yml` file at its root — it overrides `config/defaults.yml`.
 
-## 6. Giới hạn hiện tại
+## 6. Current limitations
 
-- Chỉ hỗ trợ chạy qua **Kiro CLI**. Các thư mục `adapters/claude` và `adapters/codex` đang để trống, chưa có adapter tương ứng cho Claude Code hay Codex CLI.
-- `base-branch` chỉ nhận `develop` / `master` / `main`. Nếu team dùng quy ước branch khác (ví dụ `release/*`), cần sửa `scripts/review.ps1` trước khi dùng.
-- Chỉ hoạt động trên **PowerShell**, chưa có bản tương đương cho bash/macOS/Linux.
-- `workflows/github` hiện đang trống — chưa có tích hợp CI/GitHub Action tự động chạy review khi mở PR.
+- Only **Kiro CLI** is supported for now. The `adapters/claude` and `adapters/codex` directories are empty — there's no equivalent adapter yet for Claude Code or Codex CLI.
+- `base-branch` only accepts `develop` / `master` / `main`. If your team uses a different branch convention (e.g. `release/*`), you'll need to edit `scripts/review.ps1` first.
+- **PowerShell only** — there's no bash/macOS/Linux equivalent yet.
+- `workflows/github` is currently empty — no CI/GitHub Action integration to auto-run reviews on PR open yet.
 
-## 7. Xử lý lỗi thường gặp
+## 7. Common errors
 
-| Thông báo lỗi | Nguyên nhân | Cách xử lý |
+| Error message | Cause | Fix |
 |---|---|---|
-| `ENGINEERING_AI_HOME is not configured.` | Chưa set biến môi trường | Set lại theo mục 2 |
-| `Current directory is not inside a Git repository.` | Đang không đứng trong 1 git repo | `cd` vào đúng thư mục repo |
-| `Git remote 'origin' was not found.` | Repo chưa add remote | `git remote add origin <url>` |
-| `Base branch does not exist: origin/<x>` / `Review branch does not exist: origin/<x>` | Branch chưa được push lên remote | `git push origin <branch>` rồi chạy lại |
-| `No changes found between origin/<base> and origin/<review>` | Hai branch không có khác biệt | Kiểm tra lại đúng branch cần so sánh |
-| `Failed to run Kiro CLI` | Chưa cài hoặc chưa đăng nhập `kiro-cli` | Cài đặt và đăng nhập Kiro CLI trước |
+| `ENGINEERING_AI_HOME is not configured.` | Environment variable not set | Set it as described in section 2 |
+| `Current directory is not inside a Git repository.` | Not inside a git repo | `cd` into the correct repo directory |
+| `Git remote 'origin' was not found.` | No remote configured | `git remote add origin <url>` |
+| `Base branch does not exist: origin/<x>` / `Review branch does not exist: origin/<x>` | Branch not pushed to remote | `git push origin <branch>` then retry |
+| `No changes found between origin/<base> and origin/<review>` | No diff between the two branches | Double-check you're comparing the right branches |
+| `Failed to run Kiro CLI` | `kiro-cli` not installed or not logged in | Install and log in to Kiro CLI first |
