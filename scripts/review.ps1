@@ -241,12 +241,17 @@ if (Test-Path $TempOutput) {
 Write-Host ""
 Info "Running Kiro code-reviewer..."
 
+$PreviousErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+
 try {
     & kiro-cli --v3 chat `
         --agent code-reviewer `
         --no-interactive `
         "$Prompt" 2>&1 |
         Tee-Object -FilePath $TempOutput
+
+    $ErrorActionPreference = $PreviousErrorActionPreference
 
     $KiroExitCode = $LASTEXITCODE
 
@@ -274,6 +279,8 @@ catch {
     Fail "Failed to run Kiro CLI: $($_.Exception.Message)"
 }
 finally {
+    $ErrorActionPreference = $PreviousErrorActionPreference
+
     if (Test-Path $TempOutput) {
         Remove-Item $TempOutput -Force -ErrorAction SilentlyContinue
     }
